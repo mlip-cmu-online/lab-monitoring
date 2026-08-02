@@ -8,11 +8,12 @@ start_http_server(8765)
 
 # Metrics like Counter, Gauge, Histogram, Summaries
 # Refer https://prometheus.io/docs/concepts/metric_types/ for details of each metric
-# TODO: Define metrics to show request count. Request count is total number of requests made with a particular http status
-# REQUEST_COUNT = ?(
-#     'request_count', 'Recommendation Request Count',
-#     ['http_status']
-# )
+# This Counter is exposed to Prometheus as request_count_total. The
+# http_status label lets dashboards select successful and failed requests.
+REQUEST_COUNT = Counter(
+    'request_count', 'Recommendation Request Count',
+    ['http_status']
+)
 
 REQUEST_LATENCY = Histogram(
     'request_latency_seconds', 'Request latency (seconds)',
@@ -37,7 +38,7 @@ def main():
             # Hint: Extract the status code from the message and use it as a label for the metric.
             # print(values) - You can print values and see how to get the status
             # status = Eg. 200,400 etc
-            # REQUEST_COUNT.?(status).inc()
+            # REQUEST_COUNT.labels(http_status=status).inc()
 
             # Updating request latency histogram
             time_taken = float(values[-1].strip().split(" ")[0])

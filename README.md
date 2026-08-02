@@ -6,10 +6,11 @@ You will set up a Prometheus monitoring system, connect it to a Kafka broker, an
 To receive credit for this lab, show your work to the TA in your own recitation section.
 
 ## Deliverables
-## Deliverables
-- [ ] Setup Docker with Prometheus and Grafana, updating `docker-compose.yml` so node exporter reports host-level metrics.	Implement the required response status code and latency metrics in `kafka-monitoring.py`.
+- [ ] Setup Docker with Prometheus and Grafana, updating `docker-compose.yml` so node exporter reports host-level metrics.
+- [ ] Complete the status-labeled request counter and latency metrics in `kafka-monitoring.py`.
 - [ ] Verify Prometheus targets and metrics. Run queries in Prometheus.  Explain to the TA how Prometheus reads and stores metric data, how it handles counter resets when a service restarts.
 - [ ] Create a Grafana dashboard with the following 4 panels: (1) total successful requests (status 200), (2) request rate over time (5 min), (3) node CPU usage (system mode), and (4) 95th percentile request latency (p95). Ensure panels are clearly labeled, and be prepared to explain how metrics would be aggregated across multiple service instances.
+- [ ] Define a p95 latency SLO threshold, name the role that owns it, and state the first action an alert would initiate.
 
 
 
@@ -39,7 +40,7 @@ To receive credit for this lab, show your work to the TA in your own recitation 
 1. Verify that all targets are active in Prometheus under Status > Targets.
 2. Kafka metrics are visible at http://localhost:8765/metrics, reflecting the metrics you coded in kafka-monitoring.py.
 3. Node exporter metrics are available at http://localhost:9100. These are system / host level metrics.
-4. Use the Prometheus dashboard's Graph section to explore metrics. Click on the metrics explorer (earth icon) and search for `request_count_total` to visualize total requests with their status. Then, try `rate(requests_count_total)[30s]`.
+4. Use the Prometheus dashboard's Graph section to explore metrics. Click on the metrics explorer (earth icon) and search for `request_count_total` to visualize total requests with their `http_status` label. Then, try `sum(rate(request_count_total[5m]))` to calculate the request rate across all scraped service instances.
 5. Feel free to explore various metrics available in metrics explorer in the table/graph format.
 
 ![prometheus](prometheus.png)
@@ -57,18 +58,32 @@ To receive credit for this lab, show your work to the TA in your own recitation 
 2. Choose the Prometheus data source you added. Now we will add multiple visualizations (panels) on this dashboard. 
 3. You can use `kick start your query` button in Query section at the bottom to explore different query types. You can also click on `code` to write [PromQL](https://grafana.com/blog/2020/02/04/introduction-to-promql-the-prometheus-query-language/) queries.
 4. Create panels/visualizations that depict/monitor AT LEAST the 4 following pieces of information:
-- Panel 1: Total successful requests - Count the total number of requests with status code 200.  
-- Panel 2: Total Recommendation Requests Over Time - Total of rate of requests over time (5 min)
-- Panel 3: Node CPU usage - Track CPU time consumed in 'system' mode by the node
-   - HINT: Track rate of `node_cpu_seconds_total`
-- Panel 4: 95th Percentile Request Latency – Track high-end request latency over time  
-   - HINT: Use `request_latency_seconds` and explore its `_bucket` form to visualize latency distribution.  
-   - Apply percentile functions to display the 95th percentile latency (p95) of all recommendation requests.  
+- Panel 1: Total successful requests - Count the total number of requests with status code 200.
+   - Use `sum(request_count_total{http_status="200"})`.
+   - Interpret this as the cumulative count exposed by the currently scraped service processes. A process restart resets its counter. To show successful requests observed during the last five minutes instead, use `sum(increase(request_count_total{http_status="200"}[5m]))`.
+- Panel 2: Recommendation request rate over time - Show the per-second request rate calculated over a five-minute window.
+   - Use `sum(rate(request_count_total[5m]))`. Apply `rate()` before `sum()` so Prometheus can account for counter resets from individual service instances.
+- Panel 3: Node CPU usage - Track CPU time consumed in `system` mode by each node.
+   - Use `sum by (instance) (rate(node_cpu_seconds_total{mode="system"}[5m]))`.
+   - Set the unit to CPU-seconds per second, equivalently the number of CPU cores being used in system mode. This query sums across the CPU cores reported by each node-exporter instance.
+- Panel 4: 95th percentile request latency - Track high-end request latency over time across all recommendation-service instances.
+   - Use `histogram_quantile(0.95, sum by (le) (rate(request_latency_seconds_bucket[5m])))` and set the unit to seconds.
+   - The `le` label identifies each histogram bucket and must remain in the aggregation. To inspect p95 separately by service instance, aggregate with `sum by (instance, le)` instead.
 
 - (Optional) Panel 5: Average Request Latency - Average latency for all recommendation requests
    - HINT: Use forms of `request_latency_seconds`. Make use of formula for average= sum/count
 
-> NOTE: Customize your panels with titles and labels, and adjust the visualizations for better clarity and insight. Please use proper title, axis labels, and axis units to make the visualization clear. Experiment with the Grafana interface to make your dashboard more intuitive. Refer this for [dashboard](https://grafana.com/grafana/dashboards/) configurations. 
+> NOTE: Customize your panels with titles and labels, and adjust the visualizations for better clarity and insight. Please use proper title, axis labels, and axis units to make the visualization clear. Experiment with the Grafana interface to make your dashboard more intuitive. Refer this for [dashboard](https://grafana.com/grafana/dashboards/) configurations.
+
+### Connect p95 Latency to an SLO
+
+Write one operational rule for Panel 4. Include all three elements below and be prepared to explain them to the TA:
+
+1. A numeric p95 latency threshold and the duration for which it must be exceeded before alerting (for example, p95 above 0.5 seconds for 10 minutes).
+2. The role that owns the alert, such as the recommendation-service on-call engineer.
+3. The first action that role takes, such as checking recent deployments and instance-level latency before deciding whether to roll back or escalate.
+
+Your threshold should express the service objective your team intends to meet; the example values are a format, not a required target.
 
 ## FAQ:
 1. Q: How to establish an SSH tunnel to the Kafka broker? \
