@@ -3,13 +3,15 @@ In this lab, you will gain hands-on experience in monitoring using Prometheus an
 
 You will set up a Prometheus monitoring system, connect it to a Kafka broker, and track key metrics. This practical application will be valuable for your Milestone 3. There are multiple components in this lab, some of which may be new to you, we strongly advise starting early to familiarize yourself. You can refer the screenshots included in this writeup for additional clarity.
 
-To receive credit for this lab, show your work to the TA in your own recitation section.
+Complete each deliverable and save the requested configurations, outputs, screenshots, and explanations as evidence of your work.
 
 ## Deliverables
 - [ ] Setup Docker with Prometheus and Grafana, updating `docker-compose.yml` so node exporter reports host-level metrics.
 - [ ] Complete the status-labeled request counter and latency metrics in `kafka-monitoring.py`.
-- [ ] Verify Prometheus targets and metrics. Run queries in Prometheus.  Explain to the TA how Prometheus reads and stores metric data, how it handles counter resets when a service restarts.
-- [ ] Create a Grafana dashboard with the following 4 panels: (1) total successful requests (status 200), (2) request rate over time (5 min), (3) node CPU usage (system mode), and (4) 95th percentile request latency (p95). Ensure panels are clearly labeled, and be prepared to explain how metrics would be aggregated across multiple service instances.
+- [ ] Verify Prometheus targets and metrics and save the relevant query evidence.
+      Explain in your lab notes how Prometheus reads and stores metric data and how a service restart affects a counter.
+- [ ] Create a Grafana dashboard with the following 4 panels: (1) total successful requests (status 200), (2) request rate over time (5 min), (3) node CPU usage (system mode), and (4) 95th percentile request latency (p95).
+      Label each panel clearly and record how its metrics would be aggregated across multiple service instances.
 - [ ] Define a p95 latency SLO threshold, name the role that owns it, and state the first action an alert would initiate.
 
 
@@ -77,7 +79,7 @@ To receive credit for this lab, show your work to the TA in your own recitation 
 
 ### Connect p95 Latency to an SLO
 
-Write one operational rule for Panel 4. Include all three elements below and be prepared to explain them to the TA:
+Write one operational rule for Panel 4 that includes all three elements below:
 
 1. A numeric p95 latency threshold and the duration for which it must be exceeded before alerting (for example, p95 above 0.5 seconds for 10 minutes).
 2. The role that owns the alert, such as the recommendation-service on-call engineer.
