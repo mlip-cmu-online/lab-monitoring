@@ -1,12 +1,15 @@
 # Lab: Monitoring using Prometheus and Grafana
-In this lab, you will gain hands-on experience in monitoring using Prometheus and visualizing metrics through Grafana. Prometheus is an open-source monitoring system for collecting and processing time-series data, while Grafana is a visualization platform for creating interactive dashboards. 
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/mlip-cmu-online/lab-monitoring?quickstart=1)
+
+In this lab, you will gain hands-on experience in monitoring using Prometheus and visualizing metrics through Grafana. Prometheus is an open-source monitoring system for collecting and processing time-series data, while Grafana is a visualization platform for creating interactive dashboards.
 
 You will set up a Prometheus monitoring system, connect it to a Kafka broker, and track key metrics. This practical application will be valuable for your Milestone 3. There are multiple components in this lab, some of which may be new to you, we strongly advise starting early to familiarize yourself. You can refer the screenshots included in this writeup for additional clarity.
 
 Complete each deliverable and save the requested configurations, outputs, screenshots, and explanations as evidence of your work.
 
 ## Deliverables
-- [ ] Setup Docker with Prometheus and Grafana, updating `docker-compose.yml` so node exporter reports host-level metrics.
+- [ ] Set up Docker with Prometheus and Grafana, inspect how `docker-compose.yaml` gives node exporter access to the Docker host, and save that configuration excerpt.
 - [ ] Complete the status-labeled request counter and latency metrics in `kafka-monitoring.py`.
 - [ ] Verify Prometheus targets and metrics and save the relevant query evidence.
       Explain in your lab notes how Prometheus reads and stores metric data and how a service restart affects a counter.
@@ -17,13 +20,42 @@ Complete each deliverable and save the requested configurations, outputs, screen
 
 
 ## Getting started
-- Ensure Python (preferably 3.11 or 3.10) and Docker is installed on your machine.
-- Clone the starter code from this [Git repository](https://github.com/KaushikKoirala/mlip-lab-monitoring) 
-- Navigate to this Github folder
-- Install required dependencies
-    - `pip install -r requirements.txt`
-- Establish an SSH tunnel to your team project’s Kafka broker, if not already connected (find <remote_server> and <user> in M1's instructions in Canvas):
-    - `ssh -L <local_port>:localhost:<remote_port> <user>@<remote_server> -NTf`
+
+### Recommended: GitHub Codespaces
+
+1. Open the course-owned starter with the **Open in GitHub Codespaces** button above and create a Codespace.
+   The DevContainer installs Python 3.11, the Python dependencies, SSH tools, and a dedicated Docker daemon with Docker Compose.
+2. Wait for the `Lab 8 environment ready` message in the creation log.
+3. Before editing any lab files, run the disposable end-to-end environment check:
+
+   ```bash
+   bash scripts/smoke_environment.sh
+   ```
+
+   The first run downloads the pinned Prometheus, Grafana, and node-exporter images and can take a few minutes.
+   The script temporarily exposes synthetic application metrics, starts the Compose stack, verifies ports 3000, 8765, 9090, and 9100, checks every Prometheus target and required PromQL expression, and then cleans up.
+   A successful run ends with `Environment smoke test passed`.
+4. In the Codespaces **Ports** tab, keep all four forwarded ports **Private**.
+   They do not need to be public for this lab.
+
+### Local DevContainer fallback
+
+Clone the [course-owned starter repository](https://github.com/mlip-cmu-online/lab-monitoring), open it in VS Code with the Dev Containers extension, choose **Reopen in Container**, and run the same smoke command.
+This path requires Docker on the local computer; Python and the lab dependencies are installed inside the DevContainer.
+
+### Connect the Kafka tunnel
+
+After the smoke test exits, open a separate Codespaces terminal and establish the tunnel in the foreground.
+Find `<remote_port>`, `<user>`, and `<remote_server>` in the team project's Canvas instructions.
+The local end must be port 9092 because `kafka-monitoring.py` connects to `localhost:9092`:
+
+```bash
+ssh -N -L 9092:localhost:<remote_port> <user>@<remote_server>
+```
+
+Leave that terminal open while running the monitoring script.
+Press **Ctrl+C** in the tunnel terminal when you finish; do not forward port 9092 in the Codespaces **Ports** tab.
+If SSH reports that port 9092 is already in use, stop the earlier tunnel before starting another one.
 
 ## Background
 - Familiarize yourself with the `docker-compose.yaml` and `prometheus.yml` files.
@@ -31,7 +63,8 @@ Complete each deliverable and save the requested configurations, outputs, screen
 - `prometheus.yml` file contains all data that prometheus tracks.
 
 ## Setup Docker and Run Kafka Monitoring Script
-1. Update TODO in [docker-compose.yml](./docker-compose.yaml) that allows the node exporter container to export host, [and NOT container level metrics.](https://github.com/prometheus/node_exporter?tab=readme-ov-file#docker)
+1. Inspect [docker-compose.yaml](./docker-compose.yaml), especially node exporter's host PID namespace, read-only host-root mount, and `--path.rootfs=/host` setting.
+   Save that excerpt and explain which host it represents in your environment.
 2. Execute `docker compose up -d` in the directory where docker-compose.yaml is located.
 3. Check Prometheus Status at http://localhost:9090. Navigate to Status > Targets. Initially, Prometheus will be up, but Kafka-monitoring metrics will be down.
 4. Update TODO sections in kafka-monitoring.py to expose relevant metrics to track.
@@ -44,6 +77,16 @@ Complete each deliverable and save the requested configurations, outputs, screen
 3. Node exporter metrics are available at http://localhost:9100. These are system / host level metrics.
 4. Use the Prometheus dashboard's Graph section to explore metrics. Click on the metrics explorer (earth icon) and search for `request_count_total` to visualize total requests with their `http_status` label. Then, try `sum(rate(request_count_total[5m]))` to calculate the request rate across all scraped service instances.
 5. Feel free to explore various metrics available in metrics explorer in the table/graph format.
+
+The target addresses deliberately use two different network paths:
+
+* `node-exporter:9100` uses Compose service DNS because Prometheus and node exporter are containers on the same Compose network.
+* `host.docker.internal:8765` reaches `kafka-monitoring.py`, which runs as a Python process in the DevContainer rather than as a Compose service.
+
+In Codespaces, Docker-in-Docker makes the DevContainer environment the host of the lab's Docker daemon.
+Node exporter therefore describes that hosted lab environment, not your physical laptop and not the individual node-exporter container.
+Label screenshots and interpretations as **Codespace/DevContainer host metrics**.
+On the local DevContainer fallback, it likewise describes the DevContainer's Docker environment; it should not be presented as physical-host telemetry.
 
 ![prometheus](prometheus.png)
 
@@ -86,6 +129,57 @@ Write one operational rule for Panel 4 that includes all three elements below:
 3. The first action that role takes, such as checking recent deployments and instance-level latency before deciding whether to roll back or escalate.
 
 Your threshold should express the service objective your team intends to meet; the example values are a format, not a required target.
+
+## Generate the submission report
+
+Run `mkdir -p evidence`, finish the dashboard while Grafana is running, then use **Share > Export > Export as JSON** to save `evidence/dashboard.json`.
+Keep the dashboard UID in the export and save `evidence/dashboard.png`, with all four required panels visible.
+Commit and push the completed `docker-compose.yaml`, `prometheus/prometheus.yml`, and `kafka-monitoring.py` before capturing the final evidence.
+
+While the monitoring script, Prometheus, and Grafana are still running, capture the application metrics, target status, and all four query results with:
+
+```bash
+python3 scripts/capture-monitoring-evidence.py \
+  --dashboard evidence/dashboard.json
+```
+
+The command reads the panel IDs from the dashboard export and writes `evidence/metrics.txt`, `evidence/targets.json`, and `evidence/query-results.json`.
+It fails if the dashboard does not have a UID and four distinct panels using the exact required queries, or if a saved query result cannot be obtained.
+
+Create `evidence/slo-rule.json` using the current commit, `dashboard_uid`, and p95 `panel_id` recorded in `query-results.json`:
+
+```json
+{
+  "repository_commit": "replace-with-git-rev-parse-HEAD",
+  "dashboard_uid": "replace-with-exported-dashboard-uid",
+  "panel_id": 4,
+  "threshold_seconds": 0.5,
+  "duration": "10m",
+  "owner": "recommendation-service on-call engineer",
+  "first_action": "Compare instance latency and check the latest deployment."
+}
+```
+
+Choose your own operational threshold, duration, owner, and first action.
+The `panel_id` is Grafana's numeric ID for the p95 panel, not necessarily `4`.
+Generate the self-contained report and matching manifest from the saved evidence:
+
+```bash
+python3 scripts/generate-monitoring-submission.py \
+  --learner "YOUR NAME" \
+  --repository-url "https://github.com/YOUR-ACCOUNT/lab-monitoring" \
+  --metrics-output evidence/metrics.txt \
+  --targets evidence/targets.json \
+  --query-results evidence/query-results.json \
+  --dashboard evidence/dashboard.json \
+  --dashboard-screenshot evidence/dashboard.png \
+  --slo-rule evidence/slo-rule.json
+```
+
+Open `submission/monitoring-report.html` and correct every item marked `missing` before uploading it to Canvas.
+Keep `submission/monitoring-manifest.json` and the `evidence/` directory as audit evidence; they are not additional Canvas uploads.
+The generator reads saved files and committed source only: it does not contact Kafka, Prometheus, or Grafana, and it does not judge either Canvas spot-check response.
+It exits with status 0 for a complete evidence package, status 1 for an incomplete package, and status 2 when required input cannot be read.
 
 ## FAQ:
 1. Q: How to establish an SSH tunnel to the Kafka broker? \

@@ -162,6 +162,10 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Generated lab evidence and submission outputs
+evidence/
+submission/
+
 # pytype static type analyzer
 .pytype/
 

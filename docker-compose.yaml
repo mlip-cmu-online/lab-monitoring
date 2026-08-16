@@ -1,32 +1,32 @@
-version: '3'
-
 services:
   prometheus:
-    image: prom/prometheus
+    image: prom/prometheus:v3.5.0
     container_name: prometheus
+    restart: unless-stopped
     volumes:
-      - ./prometheus/:/etc/prometheus/
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
-    expose:
-      - 9090
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     ports:
-      - 9090:9090
+      - '9090:9090'
 
   node-exporter:
-    image: quay.io/prometheus/node-exporter:latest
-    container_name: nodeexporter
+    image: quay.io/prometheus/node-exporter:v1.9.1
+    container_name: node-exporter
+    restart: unless-stopped
+    pid: host
+    command:
+      - '--path.rootfs=/host'
+    volumes:
+      - '/:/host:ro'
     ports:
-      - 9100:9100
-    expose:
-      - 9100
-    # TODO: Configure the container carefully to accurately monitor host level metrics.
-    # This may involve setting up appropriate permissions and volume mounts to access host metrics.
-    # See: https://github.com/prometheus/node_exporter?tab=readme-ov-file#docker
+      - '9100:9100'
 
-  
   grafana:
-    image: grafana/grafana-oss:latest
+    image: grafana/grafana-oss:12.1.0
     container_name: grafana
+    restart: unless-stopped
     ports:
-      - 3000:3000
+      - '3000:3000'
