@@ -1,6 +1,7 @@
 FROM mcr.microsoft.com/devcontainers/python:1-3.11-bookworm
 
-RUN apt-get update \
+RUN rm -f /etc/apt/sources.list.d/yarn.list \
+    && apt-get update \
     && apt-get install -y --no-install-recommends \
         curl \
         jq \
